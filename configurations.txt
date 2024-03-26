@@ -1,0 +1,1036 @@
+R1:
+!
+ipv6 unicast-routing
+!
+int lo0
+ip address 10.1.1.1 255.255.255.255
+no shut
+!
+int f0/0
+ipv6 address 2001:1111::1/120
+ipv6 enable
+no shut
+!
+int f1/0
+ipv6 address fc00:14::0/127
+ipv6 enable
+no shut
+!
+router bgp 65001
+no bgp default ipv4-unicast
+neighbor fc00:14::1 remote-as 144
+!
+address-family ipv6
+neighbor fc00:14::1 activate
+network 2001:1111::/120
+!
+end
+
+--------------------------------R2---------------------------------------
+
+R2:
+!
+ipv6 unicast-routing
+!
+int lo0
+ip address 10.2.2.2 255.255.255.255
+no shut
+!
+int f0/0
+ipv6 address 2001:2222::1/120
+ipv6 enable
+no shut
+!
+int f1/0
+ipv6 address fc00:25::0/127
+ipv6 enable
+no shut
+!
+router bgp 65002
+no bgp default ipv4-unicast
+neighbor fc00:25::1 remote-as 144
+!
+address-family ipv6
+neighbor fc00:25::1 activate
+network 2001:2222::/120
+!
+end
+
+---------------------------------R3--------------------------------------
+
+R3:
+!
+int lo0
+ip address 10.3.3.3 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.3.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.34.1 255.255.255.252
+no shut
+!
+int tunnel0
+ip address 10.0.36.1 255.255.255.0
+no ip redirects
+ip nhrp authentication vrfVPNB
+ip nhrp network-id 1
+ip nhrp redirect
+ip ospf network point-to-multipoint
+tunnel source f1/0
+tunnel mode gre multipoint
+!
+router ospf 3 
+router-id 10.3.3.3
+network 10.3.3.3 0.0.0.0 area 3
+network 192.168.3.1 0.0.0.0 area 3
+network 10.0.36.0 0.0.0.255 area 3
+!
+end
+
+--------------------------------R4------------------------------------
+
+R4:
+!
+ipv6 unicast-routing
+!
+vrf definition VPN-A
+rd 144:65001
+address-family ipv6
+route-target export 144:65001
+route-target import 144:65002
+route-target import 144:65021
+!
+vrf definition VPN-B
+rd 144:3
+address-family ipv4
+route-target export 144:3
+route-target import 144:6
+!
+int lo0
+ip address 10.4.4.4 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.4 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+ip vrf forwarding VPN-B
+ip address 10.0.34.2 255.255.255.252
+no shut
+!
+int f1/1
+ipv6 vrf forwarding VPN-A
+ipv6 address fc00:14::1/127
+ipv6 enable
+no shut
+!
+router ospf 2
+router-id 10.4.4.4
+network 10.4.4.4 0.0.0.0 area 2
+network 172.16.1.4 0.0.0.0 area 2
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.5.5.5 remote-as 144
+neighbor 10.5.5.5 update-source lo0
+neighbor 10.16.16.16 remote-as 144
+neighbor 10.16.16.16 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.5.5.5 activate
+!
+address-family vpnv6 unicast
+neighbor 10.5.5.5 activate
+neighbor 10.5.5.5 send-community both
+neighbor 10.16.16.16 activate
+neighbor 10.16.16.16 send-community both
+!
+address-family ipv6 vrf VPN-A
+neighbor fc00:14::0 remote-as 65001
+!
+address-family ipv4 vrf VPN-B
+redistribute connected
+!
+end
+
+-------------------------------R5------------------------------------------
+
+R5:
+!
+ipv6 unicast-routing
+!
+vrf definition VPN-A
+rd 144:65002
+address-family ipv6
+route-target export 144:65002
+route-target import 144:65001
+route-target import 144:65021
+!
+vrf definition VPN-B
+rd 144:6
+address-family ipv4
+route-target export 144:6
+route-target import 144:3
+!
+int lo0
+ip address 10.5.5.5 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.5 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+vrf forwarding VPN-B
+ip address 10.0.56.2 255.255.255.252
+no shut
+!
+int f1/1
+vrf forwarding VPN-A
+ipv6 address fc00:25::1/127
+ipv6 enable
+no shut
+!
+router ospf 2
+router-id 10.5.5.5
+network 10.5.5.5 0.0.0.0 area 2
+network 172.16.1.5 0.0.0.0 area 2
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.4.4.4 remote-as 144
+neighbor 10.4.4.4 update-source lo0
+neighbor 10.16.16.16 remote-as 144
+neighbor 10.16.16.16 update-source lo0
+!
+address-family vpnv6 unicast
+neighbor 10.4.4.4 activate
+neighbor 10.4.4.4 send-community both
+neighbor 10.16.16.16 activate
+neighbor 10.16.16.16 send-community both
+!
+address-family ipv6 vrf VPN-A
+neighbor fc00:25::0 remote-as 65002
+!
+address-family ipv4 vrf VPN-B
+!
+end
+
+----------------------------------R6-----------------------------------
+
+R6:
+!
+int lo0
+ip address 10.6.6.6 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.6.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.56.1 255.255.255.252
+no shut
+!
+int tunnel0
+ip address 10.0.36.2 255.255.255.0
+no ip redirects
+ip nhrp authentication vrfVPNB
+ip nhrp map 10.0.36.1 10.0.34.1
+ip nhrp map multicast 10.0.34.1
+ip nhrp network-id 1
+ip nhrp nhs 10.0.36.1 
+ip ospf network point-to-multipoint
+tunnel source f1/0
+tunnel mode gre multipoint
+!
+router ospf 3
+router-id 10.6.6.6
+network 10.6.6.6 0.0.0.0 area 3
+network 192.168.6.1 0.0.0.0 area 3
+network 10.0.36.0 0.0.0.0 area 3
+!
+end
+
+----------------------------------R7-----------------------------------
+
+
+R7:
+!
+int lo0
+ip address 10.7.7.7 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.7.1 255.255.255.0
+ip router isis 
+no shut
+!
+int f1/0
+ip address 10.0.79.1 255.255.255.252
+ip router isis 
+no shut
+!
+router isis 
+net 49.0001.7777.7777.7777.00
+!
+end
+
+----------------------------------R8------------------------------------
+
+R8:
+!
+int lo0
+ip address 10.8.8.8 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.8.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.89.1 255.255.255.252
+no shut
+!
+router rip 
+version 2
+network 192.168.8.0
+network 10.0.89.0
+no auto-summary
+!
+end
+
+--------------------------------R9--------------------------------------
+
+R9:
+!
+vrf definition VPN-C
+rd 144:9
+address-family ipv4
+route-target export 144:9
+route-target import 144:10
+route-target import 144:172
+!
+vrf definition VPN-D
+rd 144:8
+address-family ipv4
+route-target export 144:8
+route-target import 144:12
+route-target import 144:173
+!
+int lo0
+ip address 10.9.9.9 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.9 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+vrf forwarding VPN-C
+ip router isis 
+ip address 10.0.79.2 255.255.255.252
+no shut
+!
+int f1/1
+vrf forwarding VPN-D
+ip address 10.0.89.2 255.255.255.252
+no shut
+!
+router ospf 2
+router-id 10.9.9.9
+network 10.9.9.9 0.0.0.0 area 2
+network 172.16.1.9 0.0.0.0 area 2
+!
+router isis
+vrf VPN-C
+net 49.0001.9999.9999.9999.00
+redistribute bgp 144
+!
+router rip 
+version 2
+!
+address-family ipv4 vrf VPN-D
+version 2
+redsitribute bgp 144 metric transparent
+network 10.0.89.0
+no auto-summary
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.10.10.10 remote-as 144
+neighbor 10.10.10.10 update-source lo0
+neighbor 10.17.17.17 remote-as 144
+neighbor 10.17.17.17 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.10.10.10 activate
+neighbor 10.10.10.10 send-community both
+neighbor 10.17.17.17 activate
+neighbor 10.17.17.17 send-community both
+!
+address-family ipv4 vrf VPN-C
+redistribute isis level-1-2
+!
+address-family ipv4 vrf VPN-D
+redistribute rip
+!
+end
+
+--------------------------------R10--------------------------------------
+
+R10:
+!
+vrf definition VPN-C
+rd 144:10
+address-family ipv4
+route-target export 144:10
+route-target import 144:9
+route-target import 144:172
+!
+vrf definition VPN-D
+rd 144:12
+address-family ipv4
+route-target export 144:12
+route-target import 144:8
+route-target import 144:173
+!
+int lo0
+ip address 10.10.10.10 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.10 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+vrf forwarding VPN-C
+ip router isis 
+ip address 10.0.111.2 255.255.255.252
+no shut
+!
+int f1/1
+vrf forwarding VPN-D
+ip address 10.0.112.2 255.255.255.252
+no shut
+!
+router ospf 2
+router-id 10.10.10.10
+network 10.10.10.10 0.0.0.0 area 2
+network 172.16.1.10 0.0.0.0 area 2
+!
+router isis 
+vrf VPN-C
+net 49.0001.1010.1010.1010.00
+redistribute bgp 144 
+!
+router rip 
+version 2
+!
+address-family ipv4 vrf VPN-D
+version 2
+redistribute bgp 144 metric transparent
+network 10.0.112.0
+no auto-summary
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.9.9.9 remote-as 144
+neighbor 10.9.9.9 update-source lo0
+neighbor 10.17.17.17 remote-as 144
+neighbor 10.17.17.17 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.9.9.9 activate
+neighbor 10.9.9.9 send-community both
+neighbor 10.17.17.17 activate
+neighbor 10.17.17.17 send-community both
+!
+address-family ipv4 vrf VPN-C
+redistribute isis level-1-2
+!
+address-family ipv4 vrf VPN-D
+redistribute rip
+!
+end
+
+------------------------------------R11----------------------------------
+
+R11:
+!
+int lo0
+ip address 10.11.11.11 255.255.255.252
+no shut
+!
+int f0/0
+ip address 192.168.11.1 255.255.255.0
+ip router isis 
+no shut
+!
+int f1/0
+ip address 10.0.111.1 255.255.255.252
+ip router isis 
+no shut
+!
+router isis 
+net 49.0001.1111.1111.1111.00
+!
+end
+
+-----------------------------------R12-------------------------------------
+
+R12:
+!
+int lo0
+ip address 10.12.12.12 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.12.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.112.1 255.255.255.252
+no shut
+!
+router rip 
+version 2
+network 192.168.12.0
+network 10.0.112.0
+no auto-summary
+!
+end
+
+-----------------------------------R13---------------------------------------
+
+R13:
+!
+int lo0
+ip address 10.13.13.13 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.13.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.134.1 255.255.255.252
+no shut
+!
+int f1/1
+ip address 10.0.139.1 255.255.255.252
+no shut
+!
+router ospf 1
+router-id 10.13.13.13
+network 192.168.13.1 0.0.0.0 area 0
+network 10.0.134.1 0.0.0.0 area 0
+network 10.0.139.1 0.0.0.0 area 0
+network 10.13.13.13 0.0.0.0 area 0
+!
+end
+
+--------------------------------------R14--------------------------------------
+
+R14:
+!
+ip vrf VPN-E
+rd 144:14
+route-target export 144:14
+route-target import 144:15
+route-target import 144:17
+!
+int lo0
+ip address 10.14.14.14 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.14 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+ip vrf forwarding VPN-E
+ip address 10.0.134.2 255.255.255.252
+no shut
+!
+router ospf 2
+router-id 10.14.14.14
+network 10.14.14.14 0.0.0.0 area 2
+network 172.16.1.14 0.0.0.0 area 2
+!
+router ospf 1 vrf VPN-E
+router-id 10.14.14.1
+network 10.0.134.2 0.0.0.0 area 0
+redistribute bgp 144 subnets
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.15.15.15 remote-as 144
+neighbor 10.15.15.15 update-source lo0
+neighbor 10.17.17.17 remote-as 144
+neighbor 10.17.17.17 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.15.15.15 activate
+neighbor 10.15.15.15 send-community both
+neighbor 10.17.17.17 activate
+neighbor 10.17.17.17 send-community both
+!
+address-family ipv4 vrf VPN-E
+redistribute ospf 1 match internal external 1 external 2
+!
+end
+
+-------------------------------------R15-----------------------------------
+
+R15:
+!
+ip vrf VPN-E
+rd 144:15
+route-target export 144:15
+route-target import 144:17
+route-target import 144:14
+!
+int lo0
+ip address 10.15.15.15 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.15 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+ip vrf forwarding VPN-E
+ip address 10.0.152.2 255.255.255.252
+no shut
+!
+router ospf 2
+router-id 10.15.15.15
+network 10.15.15.15 0.0.0.0 area 2
+network 172.16.1.15 0.0.0.0 area 2
+!
+router ospf 1 vrf VPN-E
+router-id 10.15.15.1
+network 10.0.152.2 0.0.0.0 area 0
+redistribute bgp 144 subnets
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.17.17.17 remote-as 144
+neighbor 10.17.17.17 update-source lo0
+neighbor 10.14.14.14 remote-as 144
+neighbor 10.14.14.14 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.17.17.17 activate
+neighbor 10.17.17.17 send-community both
+neighbor 10.14.14.14 activate
+neighbor 10.14.14.14 send-community both
+!
+address-family ipv4 vrf VPN-E
+redistribute ospf 1 match internal external 1 external 2
+!
+end
+
+-------------------------------------R16------------------------------------
+
+R16:
+!
+ipv6 unicast-routing
+!
+vrf definition VPN-A
+rd 144:65021
+address-family ipv6
+route-target export 144:65021
+route-target import 144:65001
+route-target import 144:65002
+!
+int lo0
+ip address 10.16.16.16 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.16 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+vrf forwarding VPN-A
+ipv6 address fc00:1621::1/127
+ipv6 enable 
+no shut
+!
+router ospf 2
+router-id 10.16.16.16 
+network 10.16.16.16 0.0.0.0 area 2
+network 172.16.1.16 0.0.0.0 area 2
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.4.4.4 remote-as 144
+neighbor 10.4.4.4 update-source lo0
+neighbor 10.5.5.5 remote-as 144
+neighbor 10.5.5.5 update-source lo0
+!
+address-family vpnv6 unicast
+neighbor 10.4.4.4 activate
+neighbor 10.4.4.4 send-community both
+neighbor 10.5.5.5 activate
+neighbor 10.5.5.5 send-community both
+!
+address-family ipv6 vrf VPN-A
+neighbor fc00:25::0 remote-as 65002
+!
+end
+
+---------------------------------------R17-------------------------------------
+ 
+R17:
+!
+ip vrf VPN-E
+rd 144:17
+route-target export 144:17
+route-target import 144:15
+route-target import 144:14
+!
+vrf defintion VPN-B
+rd 144:171
+!
+vrf definition VPN-C
+rd 144:172
+address-family ipv4
+route-target export 144:172
+route-target import 144:10
+route-target import 144:9
+!
+vrf definition VPN-D
+rd 144:173
+address-family ipv4
+route-target export 144:173
+route-target import 144:12
+route-target import 144:8
+!
+int lo0
+ip address 10.17.17.17 255.255.255.255
+no shut
+!
+int f0/0
+ip address 172.16.1.17 255.255.255.0
+mpls ip
+no shut
+!
+int f1/0
+vrf forwarding VPN-E
+ip address 10.0.178.2 255.255.255.252
+no shut
+!
+int f1/1.10
+encapsulation dot1Q 10
+vrf forwarding VPN-B
+ip address 10.1.172.2 255.255.255.0
+no shut
+!
+int f1/1.20
+encapsulation dot1Q 20
+vrf forwarding VPN-C
+ip address 10.2.172.2 255.255.255.0
+ip router isis
+no shut
+!
+int f1/1.30
+encapsulation dot1Q 30
+vrf forwarding VPN-D
+ip address 10.3.172.2 255.255.255.0
+no shut
+!
+router ospf 2
+router-id 10.17.17.17
+network 10.17.17.17 0.0.0.0 area 2
+network 172.16.1.17 0.0.0.0 area 2
+!
+router ospf 1 vrf VPN-E
+router-id 10.17.17.1
+network 10.0.178.2 0.0.0.0 area 0
+redistribute bgp 144 subnets
+!
+router isis
+vrf VPN-C
+net 49.0001.1717.1717.1717.00
+redistribute bgp 144 
+!
+router rip
+version 2
+!
+address-family ipv4 vrf VPN-D
+version 2
+redistribute bgp 144 metric transparent
+network 10.3.172.2
+no auto-summary
+!
+router bgp 144
+no bgp default ipv4-unicast
+neighbor 10.15.15.15 remote-as 144
+neighbor 10.15.15.15 update-source lo0
+neighbor 10.14.14.14 remote-as 144
+neighbor 10.14.14.14 update-source lo0
+neighbor 10.9.9.9 remote-as 144
+neighbor 10.9.9.9 update-source lo0
+neighbor 10.10.10.10 remote-as 144
+neighbor 10.10.10.10 update-source lo0
+!
+address-family vpnv4 unicast
+neighbor 10.15.15.15 activate
+neighbor 10.15.15.15 send-community both
+neighbor 10.14.14.14 activate
+neighbor 10.14.14.14 send-community both
+neighbor 10.9.9.9 activate
+neighbor 10.9.9.9 send-community both
+neighbor 10.10.10.10 activate
+neighbor 10.10.10.10 send-community both
+!
+address-family ipv4 vrf VPN-E
+redistribute ospf 1 match internal external 1 external 2
+!
+address-family ipv4 vrf VPN-B
+!
+address-family ipv4 vrf VPN-C
+neighbor 10.2.172.1 remote-as 144
+neighbor 10.2.172.1 activate
+neighbor 10.2.172.1 send-community both
+redistribute isis level-1-2
+!
+address-family ipv4 vrf VPN-D
+neighbor 10.3.172.1 remote-as 144
+neighbor 10.3.172.1 activate
+neighbor 10.3.172.1 send-community both
+redistribute rip
+!
+end
+
+-------------------------------------R18--------------------------------------
+
+R18:
+!
+int lo0
+ip address 10.18.18.18 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.18.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.178.1 255.255.255.252
+no shut
+!
+router ospf 1
+router-id 10.18.18.18
+network 10.18.18.18 0.0.0.0 area 0
+network 192.168.18.1 0.0.0.0 area 0
+network 10.0.178.1 0.0.0.0 area 0
+!
+end
+
+---------------------------------------R19------------------------------------
+
+R19:
+!
+int lo0
+ip address 10.19.19.19 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.19.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.139.2 255.255.255.252
+no shut
+!
+int f1/1
+ip address 10.0.192.1 255.255.255.252
+ip ospf cost 10
+no shut
+!
+router ospf 1
+router-id 10.19.19.19
+network 10.19.19.19 0.0.0.0 area 0
+network 192.168.19.1 0.0.0.0 area 123
+network 10.0.139.2 0.0.0.0 area 0
+network 10.0.192.1 0.0.0.0 area 0
+!
+end
+
+------------------------------------------R20--------------------------------
+
+R20:
+!
+int lo0
+ip address 10.20.20.20 255.255.255.255
+no shut
+!
+int f0/0
+ip address 192.168.20.1 255.255.255.0
+no shut
+!
+int f1/0
+ip address 10.0.152.1 255.255.255.252
+no shut
+!
+int f1/1
+ip address 10.0.192.2 255.255.255.252
+ip ospf cost 10
+no shut
+!
+router ospf 1
+router-id 10.20.20.20
+network 10.20.20.20 0.0.0.0 area 0
+network 192.168.20.1 0.0.0.0 area 0
+network 10.0.152.1 0.0.0.0 area 0
+network 10.0.192.2 0.0.0.0 area 0
+!
+end
+
+-----------------------------------R21---------------------------------------
+
+R21:
+!
+ipv6 unicast-routing
+!
+int lo0
+ip address 10.21.21.21 255.255.255.255
+no shut
+!
+int f0/0
+ipv6 address 2001:2121::1/120
+ipv6 enable
+no shut
+!
+int f1/0
+ipv6 address fc00:1621::0/127
+ipv6 enable
+no shut
+!
+router bgp 65021
+no bgp default ipv4-unicast
+neighbor fc00:1621::1 remote-as 144
+!
+address-family ipv6
+neighbor fc00:1621::1 activate
+network 2001:2121::/120
+!
+
+end
+
+--------------------------------------R22-------------------------------------
+
+R22:
+!
+vrf defintion VPN-B
+rd 144:171
+!
+vrf definition VPN-C
+rd 144:172
+!
+vrf definition VPN-D
+rd 144:173
+!
+int lo0
+ip address 10.22.22.22 255.255.255.255
+no shut
+!
+int tunnel0
+ip address 10.0.36.3 255.255.255.0
+no ip redirects
+ip nhrp authentication vrfVPNB
+ip nhrp map 10.0.36.1 10.0.34.1
+ip nhrp map multicast 10.0.34.1
+ip nhrp network-id 1
+ip nhrp nhs 10.0.36.1
+ip ospf network point-to-multipoint
+tunnel source f2/0.10
+tunnel mode gre multipoint
+!
+int f0/0
+ip address 192.168.22.1 255.255.255.0
+no shut
+!
+int f1/0
+vrf forwarding VPN-C
+ip router isis 
+ip address 192.168.23.1 255.255.255.0
+no shut
+!
+int f1/1
+vrf forwarding VPN-D
+ip address 192.168.24.1 255.255.255.0
+no shut
+!
+int f2/0.10
+encapsulation dot1Q 10
+vrf forwarding VPN-B
+ip address 10.1.172.1 255.255.255.0
+no shut
+!
+int f2/0.20
+encapsulation dot1Q 20
+vrf forwarding VPN-C
+ip address 10.2.172.1 255.255.255.0
+ip router isis
+no shut
+!
+int f2/0.30
+encapsulation dot1Q 30
+vrf forwarding VPN-D
+ip address 10.3.172.1 255.255.255.0
+no shut
+!
+router isis 
+vrf VPN-C
+is-type level-1-2
+net 49.0001.2222.2222.2222.00
+redistribute bgp 144
+!
+router rip
+version 2
+!
+address-family ipv4 vrf VPN-D
+version 2
+network 192.168.24.0
+redistribute bgp 144 metric transparent
+no auto-summary
+!
+router ospf 3
+router-id 10.22.22.22
+network 192.168.22.1 0.0.0.0 area 3
+network 10.0.36.0 0.0.0.255 area 3
+network 10.22.22.22 0.0.0.0 area 3
+!
+router bgp 144
+no bgp default ipv4-unicast
+!
+address-family ipv4 vrf VPN-B
+!
+address-family ipv4 vrf VPN-C
+neighbor 10.2.172.2 remote-as 144
+neighbor 10.2.172.2 activate
+neighbor 10.2.172.2 send-community both
+redistribute isis level-1-2
+!
+address-family ipv4 vrf VPN-D
+neighbor 10.3.172.2 remote-as 144
+neighbor 10.3.172.2 activate
+neighbor 10.3.172.2 send-community both
+redistribute rip
+!
+end
